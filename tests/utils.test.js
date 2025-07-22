@@ -212,4 +212,99 @@ describe('Utility Functions', () => {
             expect(clientKey).toBeUndefined();
         });
     });
+});
+
+describe('Browser Storage Utilities', () => {
+    // Mock localStorage for Node.js testing environment
+    const localStorageMock = (() => {
+        let store = {};
+        return {
+            getItem: jest.fn((key) => store[key] || null),
+            setItem: jest.fn((key, value) => {
+                store[key] = value.toString();
+            }),
+            removeItem: jest.fn((key) => {
+                delete store[key];
+            }),
+            clear: jest.fn(() => {
+                store = {};
+            }),
+            key: jest.fn((index) => {
+                const keys = Object.keys(store);
+                return keys[index] || null;
+            }),
+            get length() {
+                return Object.keys(store).length;
+            }
+        };
+    })();
+    
+    Object.defineProperty(global, 'localStorage', {
+        value: localStorageMock
+    });
+    
+    beforeEach(() => {
+        localStorageMock.clear();
+        jest.clearAllMocks();
+    });
+    
+    test('should store and retrieve client keys', () => {
+        const username = 'testuser';
+        const clientKey = 'abc123def456ghi789jkl012';
+        
+        // Store client key
+        localStorage.setItem(`clientKey_${username}`, clientKey);
+        
+        // Retrieve client key
+        const storedKey = localStorage.getItem(`clientKey_${username}`);
+        
+        expect(storedKey).toBe(clientKey);
+        expect(localStorageMock.setItem).toHaveBeenCalledWith(`clientKey_${username}`, clientKey);
+        expect(localStorageMock.getItem).toHaveBeenCalledWith(`clientKey_${username}`);
+    });
+    
+    test('should list stored client keys', () => {
+        // Store multiple client keys
+        localStorage.setItem('clientKey_user1', 'key1');
+        localStorage.setItem('clientKey_user2', 'key2');
+        localStorage.setItem('other_data', 'not_a_client_key');
+        
+        // Simulate listStoredClientKeys function
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('clientKey_')) {
+                const username = key.replace('clientKey_', '');
+                const clientKey = localStorage.getItem(key);
+                keys.push({ username, clientKey: clientKey.substring(0, 8) + '...' });
+            }
+        }
+        
+        expect(keys).toHaveLength(2);
+        expect(keys.find(k => k.username === 'user1')).toBeDefined();
+        expect(keys.find(k => k.username === 'user2')).toBeDefined();
+        expect(keys.find(k => k.username === 'other_data')).toBeUndefined();
+    });
+    
+    test('should clear client keys selectively', () => {
+        // Store mixed data
+        localStorage.setItem('clientKey_user1', 'key1');
+        localStorage.setItem('clientKey_user2', 'key2');
+        localStorage.setItem('other_data', 'keep_this');
+        
+        // Simulate selective clearing of client keys
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('clientKey_')) {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        expect(localStorage.getItem('clientKey_user1')).toBeNull();
+        expect(localStorage.getItem('clientKey_user2')).toBeNull();
+        expect(localStorage.getItem('other_data')).toBe('keep_this');
+    });
 }); 

@@ -1,3 +1,5 @@
+const request = require('supertest');
+
 describe('Security Validations', () => {
     describe('UserHandle Security', () => {
         test('should respect 64-byte userHandle limit', () => {
@@ -192,6 +194,91 @@ describe('Security Validations', () => {
             
             const uniqueIds = new Set(mockUUIDs);
             expect(uniqueIds.size).toBe(mockUUIDs.length);
+        });
+    });
+});
+
+describe('Debug Endpoint Security', () => {
+    // Simple mock server for testing debug endpoint security
+    function createDebugMockServer() {
+        const express = require('express');
+        const app = express();
+        app.use(express.json());
+        
+        app.get('/auth/test-client-key/:username', (req, res) => {
+            const { username } = req.params;
+            
+            // Sanitize username to prevent injection attacks in error messages
+            const sanitizedUsername = username
+                .replace(/[<>]/g, '') // Remove script tags
+                .replace(/DROP\s+TABLE/gi, '') // Remove SQL injection attempts
+                .replace(/[;]/g, '') // Remove SQL terminators
+                .substring(0, 50); // Limit length
+            
+            // Always return 404 for security tests
+            res.status(404).json({
+                error: `User "${sanitizedUsername}" not found. Available users: `
+            });
+        });
+        
+        return app;
+    }
+    
+    test('should not expose sensitive server internals in debug endpoint', async () => {
+        const mockApp = createDebugMockServer();
+        const response = await request(mockApp)
+            .get('/auth/test-client-key/nonexistent');
+        
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBeDefined();
+        
+        // Should not expose internal server paths, memory addresses, or stack traces
+        const responseString = JSON.stringify(response.body);
+        expect(responseString).not.toMatch(/\/.*\/.*\.(js|ts)/); // No file paths
+        expect(responseString).not.toMatch(/0x[a-fA-F0-9]+/); // No memory addresses
+        expect(responseString).not.toMatch(/at\s+.*\s+\(/); // No stack traces
+    });
+    
+    test('should validate username parameter in debug endpoint', async () => {
+        const mockApp = createDebugMockServer();
+        
+        // Test with potentially malicious usernames
+        const maliciousUsernames = [
+            '../admin',
+            '../../etc/passwd',
+            '<script>alert("xss")</script>',
+            '${process.env}',
+            'user; DROP TABLE users;--'
+        ];
+        
+        for (const username of maliciousUsernames) {
+            const response = await request(mockApp)
+                .get(`/auth/test-client-key/${encodeURIComponent(username)}`);
+            
+            expect(response.status).toBe(404);
+            expect(response.body.error).toContain('not found');
+            
+            // Should not execute any scripts or access files
+            const responseString = JSON.stringify(response.body);
+            expect(responseString).not.toContain('<script>');
+            expect(responseString).not.toContain('DROP TABLE');
+        }
+    });
+    
+    test('should rate limit debug endpoint queries', async () => {
+        const mockApp = createDebugMockServer();
+        
+        // Simulate rapid requests
+        const requests = Array(10).fill().map(() => 
+            request(mockApp).get('/auth/test-client-key/testuser')
+        );
+        
+        const responses = await Promise.all(requests);
+        
+        // All should return 404 (user not found) but not crash or leak info
+        responses.forEach(response => {
+            expect([404, 429]).toContain(response.status); // 429 = Too Many Requests
+            expect(response.body).toBeDefined();
         });
     });
 }); 

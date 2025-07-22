@@ -103,4 +103,16 @@ describe('Integration Tests', () => {
             expect(response.body).toHaveProperty('sessionId');
         });
     });
+});
+
+describe('Debug Endpoints Integration', () => {
+    test('should respond to test client key endpoint', async () => {
+        const response = await request('http://localhost:3000')
+            .get('/auth/test-client-key/testuser')
+            .expect('Content-Type', /json/);
+        
+        // Should return 404 for non-existent user, but endpoint should work
+        expect([200, 404]).toContain(response.status);
+        expect(response.body).toHaveProperty('error');
+    });
 }); 

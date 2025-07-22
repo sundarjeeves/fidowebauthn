@@ -44,10 +44,36 @@ function createMockServer() {
                 challenge: 'mock-challenge',
                 user: {
                     id: `${username}:${clientKey}`,
-                    name: username,
+                    name: `${username} [Key: ${clientKey.substring(0, 8)}...]`, // Include partial key for Keeper visibility
                     displayName: clientKey
                 }
             }
+        });
+    });
+    
+    // Mock test client key extraction endpoint
+    app.get('/auth/test-client-key/:username', (req, res) => {
+        const { username } = req.params;
+        
+        const user = Array.from(users.values()).find(u => u.username === username);
+        
+        if (!user) {
+            return res.status(404).json({
+                error: `User "${username}" not found. Available users: ${Array.from(users.values()).map(u => u.username).join(', ')}`
+            });
+        }
+        
+        // Extract client key from userIdData (format: "username:clientKey")
+        const [extractedUsername, extractedClientKey] = user.userIdData.split(':');
+        
+        res.json({
+            success: true,
+            username: extractedUsername,
+            clientKey: extractedClientKey,
+            userId: user.userIdData,
+            storedClientKey: user.clientKey,
+            match: extractedClientKey === user.clientKey,
+            message: 'Client key successfully extracted from passkey userHandle'
         });
     });
     
@@ -55,16 +81,27 @@ function createMockServer() {
     app.post('/auth/register/verify', (req, res) => {
         const { challengeId, credential } = req.body;
         
-        const challengeData = challenges.get(challengeId);
-        if (!challengeData) {
+        const challenge = challenges.get(challengeId);
+        if (!challenge) {
             return res.status(400).json({ error: 'Invalid challenge' });
         }
         
-        // Store user
-        users.set('mock-credential-id', {
-            username: challengeData.username,
-            displayName: challengeData.displayName,
-            clientKey: challengeData.clientKey,
+        // Store user with embedded client key
+        const userId = `${challenge.username}:${challenge.clientKey}`;
+        users.set(credential.id, {
+            credentialId: credential.id,
+            username: challenge.username,
+            displayName: challenge.displayName,
+            clientKey: challenge.clientKey,
+            userIdData: userId,
+            hashedPassword: 'mock-hashed-password',
+            credentials: [{
+                credentialId: credential.id,
+                credentialIdBase64: credential.id,
+                publicKey: 'mock-public-key',
+                counter: 0,
+                createdAt: new Date().toISOString()
+            }],
             createdAt: new Date().toISOString()
         });
         
@@ -72,8 +109,8 @@ function createMockServer() {
         
         res.json({
             success: true,
-            message: 'Registration successful',
-            clientKey: challengeData.clientKey
+            userId: userId,
+            message: 'Registration successful'
         });
     });
     
@@ -191,7 +228,7 @@ describe('Mock Server Tests', () => {
                 .expect(200);
             
             expect(verifyResponse.body.success).toBe(true);
-            expect(verifyResponse.body.clientKey).toBe(challengeResponse.body.clientKey);
+            expect(verifyResponse.body.userId).toContain(challengeResponse.body.clientKey);
         });
         
         test('should reject registration with missing fields', async () => {
@@ -383,5 +420,110 @@ describe('Mock Server Tests', () => {
             // Client key should be preserved
             expect(authResponse.body.user.clientKey).toBe(regResponse.body.clientKey);
         });
+    });
+});
+
+describe('Client Key Extraction Debug Endpoint', () => {
+    let server;
+    
+    beforeEach(() => {
+        server = createMockServer();
+    });
+    
+    test('should extract client key from registered user', async () => {
+        // First register a user
+        const registerResponse = await request(server)
+            .post('/auth/register/challenge')
+            .send({
+                username: 'testuser',
+                displayName: 'Test User',
+                password: 'password123'
+            });
+        
+        expect(registerResponse.status).toBe(200);
+        const { challengeId, clientKey } = registerResponse.body;
+        
+        // Verify registration
+        await request(server)
+            .post('/auth/register/verify')
+            .send({
+                challengeId,
+                credential: {
+                    id: 'mock-credential-id',
+                    rawId: 'mock-raw-id',
+                    response: {
+                        clientDataJSON: 'mock-client-data',
+                        attestationObject: 'mock-attestation'
+                    }
+                }
+            });
+        
+        // Test client key extraction
+        const extractResponse = await request(server)
+            .get('/auth/test-client-key/testuser');
+        
+        expect(extractResponse.status).toBe(200);
+        expect(extractResponse.body.success).toBe(true);
+        expect(extractResponse.body.username).toBe('testuser');
+        expect(extractResponse.body.clientKey).toBe(clientKey);
+        expect(extractResponse.body.match).toBe(true);
+        expect(extractResponse.body.message).toContain('Client key successfully extracted');
+    });
+    
+    test('should return 404 for non-existent user', async () => {
+        const response = await request(server)
+            .get('/auth/test-client-key/nonexistent');
+        
+        expect(response.status).toBe(404);
+        expect(response.body.error).toContain('User "nonexistent" not found');
+    });
+});
+
+describe('Keeper Secret Manager Compatibility', () => {
+    let server;
+    
+    beforeEach(() => {
+        server = createMockServer();
+    });
+    
+    test('should include partial client key in passkey name for Keeper visibility', async () => {
+        const response = await request(server)
+            .post('/auth/register/challenge')
+            .send({
+                username: 'keeperuser',
+                displayName: 'Keeper User',
+                password: 'password123'
+            });
+        
+        expect(response.status).toBe(200);
+        expect(response.body.clientKey).toBeDefined();
+        
+        const { clientKey } = response.body;
+        const expectedName = `keeperuser [Key: ${clientKey.substring(0, 8)}...]`;
+        
+        expect(response.body.publicKey.user.name).toBe(expectedName);
+        expect(response.body.publicKey.user.displayName).toBe(clientKey);
+    });
+    
+    test('should store full client key in displayName and partial in name', async () => {
+        const response = await request(server)
+            .post('/auth/register/challenge')
+            .send({
+                username: 'dualstoreuser',
+                displayName: 'Dual Store User', 
+                password: 'password123'
+            });
+        
+        expect(response.status).toBe(200);
+        
+        const { publicKey, clientKey } = response.body;
+        
+        // Full client key in displayName (for extraction)
+        expect(publicKey.user.displayName).toBe(clientKey);
+        
+        // Partial client key in name (for Keeper visibility)
+        expect(publicKey.user.name).toContain('[Key:');
+        expect(publicKey.user.name).toContain(clientKey.substring(0, 8));
+        expect(publicKey.user.name).toContain('dualstoreuser');
     });
 }); 
