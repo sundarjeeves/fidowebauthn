@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passkey + Client Key Authentication Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%);
+            min-height: 100vh;
+            color: #F5E6D3;
+        }
+        
+        .container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(245, 230, 211, 0.2);
+            border: 1px solid rgba(245, 230, 211, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            color: #F5E6D3;
+            font-weight: bold;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(245, 230, 211, 0.4);
+        }
+        
+        .section h2 {
+            color: #F5E6D3;
+            border-bottom: 2px solid #D2B48C;
+            padding-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #F5E6D3;
+        }
+        
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(245, 230, 211, 0.3);
+            border-radius: 8px;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #F5E6D3;
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #D2B48C;
+            outline: none;
+            box-shadow: 0 0 10px rgba(210, 180, 140, 0.3);
+        }
+        
+        input[readonly] {
+            background: rgba(0, 0, 0, 0.6);
+            border-color: rgba(245, 230, 211, 0.5);
+            cursor: not-allowed;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #F5E6D3, #D2B48C);
+            color: #000;
+            padding: 12px 24px;
+            border: 2px solid rgba(245, 230, 211, 0.3);
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(210, 180, 140, 0.6);
+            background: linear-gradient(45deg, #D2B48C, #F5E6D3);
+        }
+        
+        button:disabled {
+            background: #666;
+            color: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        button[type="button"] {
+            background: linear-gradient(45deg, #DDD6C1, #C4B5A0);
+            color: #000;
+            font-size: 14px;
+            padding: 8px 16px;
+            margin-left: 10px;
+        }
+        
+        button[type="button"]:hover {
+            background: linear-gradient(45deg, #C4B5A0, #DDD6C1);
+        }
+        
+        .success {
+            background: rgba(0, 0, 0, 0.9);
+            color: #32CD32;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #32CD32;
+        }
+        
+        .error {
+            background: rgba(0, 0, 0, 0.9);
+            color: #FF6B6B;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #FF6B6B;
+        }
+        
+        .info {
+            background: rgba(0, 0, 0, 0.9);
+            color: #F5E6D3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #D2B48C;
+        }
+        
+        .fingerprint-icon {
+            font-size: 3em;
+            text-align: center;
+            margin: 20px 0;
+            color: #F5E6D3;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .user-item {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #D2B48C;
+            border: 1px solid rgba(245, 230, 211, 0.3);
+        }
+        
+        .spinner {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+            font-size: 1.2em;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Passkey + Client Key Authentication Demo</h1>
+        
+        <div class="fingerprint-icon">🔐</div>
+        
+        <div class="section">
+            <h2>🔐 User Registration</h2>
+            <p>Register a new user with embedded client key in the passkey</p>
+            
+            <div class="form-group">
+                <label for="regUsername">Username:</label>
+                <input type="text" id="regUsername" placeholder="Enter username" />
+            </div>
+            
+            <div class="form-group">
+                <label for="regDisplayName">Display Name:</label>
+                <input type="text" id="regDisplayName" placeholder="Enter display name" />
+            </div>
+            
+            <div class="form-group">
+                <label for="regPassword">Password:</label>
+                <input type="password" id="regPassword" placeholder="Enter password" />
+            </div>
+            
+            <div class="form-group">
+                <label for="regDeviceName">Device Name (Optional):</label>
+                <input type="text" id="regDeviceName" placeholder="e.g., My Laptop, iPhone" />
+            </div>
+            
+            <div class="form-group" id="regClientKeyResult" style="display: none;">
+                <label for="regClientKeyDisplay">Your Client Key (Stored in Passkey DisplayName & UserHandle):</label>
+                <input type="text" id="regClientKeyDisplay" readonly />
+                <button type="button" onclick="copyRegClientKey()">Copy to Clipboard</button>
+                <p><small>🔐 This client key is embedded in your passkey's userHandle as "username:clientKey" and also stored in the displayName field for easy access in your password manager.</small></p>
+            </div>
+
+            <button onclick="registerUser()">Register User (Biometric/Platform)</button>
+            <button onclick="registerUserWithPINFromMainForm()" style="background: #8B4513; margin-left: 10px;">Register User (PIN/Security Key)</button>
+            <div id="registerResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>🔢 PIN-Based Registration</h2>
+            <p>Register using hardware security key with PIN authentication</p>
+            
+            <div class="form-group">
+                <label for="pinRegUsername">Username:</label>
+                <input type="text" id="pinRegUsername" placeholder="Enter username" />
+            </div>
+            
+            <div class="form-group">
+                <label for="pinRegDisplayName">Display Name:</label>
+                <input type="text" id="pinRegDisplayName" placeholder="Enter display name" />
+            </div>
+            
+            <div class="form-group">
+                <label for="pinRegPassword">Password:</label>
+                <input type="password" id="pinRegPassword" placeholder="Enter password" />
+            </div>
+            
+            <div class="form-group">
+                <label for="pinRegDeviceName">Security Key Name (Optional):</label>
+                <input type="text" id="pinRegDeviceName" placeholder="e.g., YubiKey, Security Key" />
+            </div>
+            
+            <div class="form-group" id="pinRegClientKeyResult" style="display: none;">
+                <label for="pinRegClientKeyDisplay">Your Client Key:</label>
+                <input type="text" id="pinRegClientKeyDisplay" readonly />
+                <button type="button" onclick="copyPinRegClientKey()">Copy to Clipboard</button>
+                <p><small>🔢 This client key is embedded in your security key credential.</small></p>
+            </div>
+
+            <button onclick="registerUserWithPIN()">Register with PIN Security Key</button>
+            <div id="pinRegisterResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>🔓 User Authentication</h2>
+            <p>Login using username + password + passkey - client key is fetched from password manager</p>
+            
+            <div class="form-group">
+                <label for="authUsername">Username:</label>
+                <input type="text" id="authUsername" placeholder="Enter username" />
+            </div>
+            
+            <div class="form-group">
+                <label for="authPassword">Password:</label>
+                <input type="password" id="authPassword" placeholder="Enter password" />
+            </div>
+            
+            <p><small>Enter your credentials above, then use your biometric authenticator. The client key will be automatically fetched from your passkey's displayName.</small></p>
+            
+            <button onclick="authenticateUser()">Authenticate with Password + Passkey</button>
+            <button onclick="authenticateUserWithPIN()" style="background: #8B4513; margin-left: 10px;">Authenticate with PIN</button>
+            <div id="authResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>🔢 PIN Authentication</h2>
+            <p>Login using username + password + PIN security key</p>
+            
+            <div class="form-group">
+                <label for="pinAuthUsername">Username:</label>
+                <input type="text" id="pinAuthUsername" placeholder="Enter username" />
+            </div>
+            
+            <div class="form-group">
+                <label for="pinAuthPassword">Password:</label>
+                <input type="password" id="pinAuthPassword" placeholder="Enter password" />
+            </div>
+            
+            <p><small>Insert your PIN security key and enter PIN when prompted.</small></p>
+            
+            <button onclick="authenticateUserWithPIN()">Authenticate with PIN Security Key</button>
+            <div id="pinAuthResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>📱 Device Registration</h2>
+            <p>Register new device by scanning QR code and creating authorization passkey</p>
+            
+            <div class="form-group">
+                <label for="deviceRegSessionId">Registration Session ID:</label>
+                <input type="text" id="deviceRegSessionId" placeholder="Enter session ID from QR code" />
+            </div>
+            
+            <div class="form-group">
+                <label for="deviceRegUsername">Username:</label>
+                <input type="text" id="deviceRegUsername" placeholder="Enter username" />
+            </div>
+            
+            <div class="form-group">
+                <label for="trustedDeviceName">Authorization Device Name:</label>
+                <input type="text" id="trustedDeviceName" placeholder="e.g., My iPhone, Authorization Device" />
+            </div>
+            
+            <p><small>🔐 <strong>Note:</strong> This will create a NEW passkey on this device to authorize the registration request.</small></p>
+            
+            <button onclick="authorizeDeviceRegistration()">Create Authorization Passkey</button>
+            <div id="deviceRegResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>👥 Admin: Users</h2>
+            <button onclick="loadUsers()">Refresh Users</button>
+            <div id="usersList">Loading...</div>
+        </div>
+        
+        <div class="section">
+            <h2>🩺 Health Check</h2>
+            <button onclick="checkHealth()">Check Server Health</button>
+            <div id="healthResult">Ready</div>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to convert ArrayBuffer to Base64URL
+        function arrayBufferToBase64url(buffer) {
+            return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+                .replace(/=/g, '')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_');
+        }
+
+        // Helper function to convert Base64URL to ArrayBuffer
+        function base64urlToArrayBuffer(base64url) {
+            if (typeof base64url !== 'string') {
+                console.error('base64urlToArrayBuffer: input is not a string:', typeof base64url, base64url);
+                throw new Error('Expected base64url string, got ' + typeof base64url);
+            }
+            
+            try {
+                let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+                
+                switch (base64.length % 4) {
+                    case 0:
+                        break;
+                    case 2:
+                        base64 += '==';
+                        break;
+                    case 3:
+                        base64 += '=';
+                        break;
+                    default:
+                        throw new Error('Invalid base64url string');
+                }
+
+                const binary = atob(base64);
+                
+                const buffer = new ArrayBuffer(binary.length);
+                const view = new Uint8Array(buffer);
+                for (let i = 0; i < binary.length; i++) {
+                    view[i] = binary.charCodeAt(i);
+                }
+                return buffer;
+            } catch (error) {
+                console.error('Error in base64urlToArrayBuffer:', error);
+                console.error('Input string:', base64url);
+                throw new Error('Failed to decode base64url string: ' + error.message);
+            }
+        }
+
+        // Copy client key to clipboard for registration
+        async function copyRegClientKey() {
+            const clientKeyField = document.getElementById('regClientKeyDisplay');
+            try {
+                await navigator.clipboard.writeText(clientKeyField.value);
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            } catch (err) {
+                clientKeyField.select();
+                document.execCommand('copy');
+                alert('Client key copied to clipboard!');
+            }
+        }
+
+        // Register a new user
+        async function registerUser() {
+            const username = document.getElementById('regUsername').value;
+            const displayName = document.getElementById('regDisplayName').value || username;
+            const password = document.getElementById('regPassword').value;
+            const resultDiv = document.getElementById('registerResult');
+            const clientKeyResult = document.getElementById('regClientKeyResult');
+            
+            if (!username || !password) {
+                resultDiv.innerHTML = '<div class="error">Please enter username and password</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Requesting registration challenge...</div>';
+                clientKeyResult.style.display = 'none';
+                
+                const deviceName = document.getElementById('regDeviceName').value || 'Primary Device';
+                const challengeResponse = await fetch('/auth/register/challenge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, displayName, password, deviceName })
+                });
+                
+                const challengeData = await challengeResponse.json();
+                
+                if (!challengeResponse.ok) {
+                    throw new Error(challengeData.error || 'Failed to get challenge');
+                }
+                
+                document.getElementById('regClientKeyDisplay').value = challengeData.clientKey;
+                clientKeyResult.style.display = 'block';
+                
+                localStorage.setItem('clientKey', challengeData.clientKey);
+                localStorage.setItem('username', username);
+                
+                resultDiv.innerHTML = '<div class="info">Creating passkey... Please use your biometric authenticator</div>';
+                
+                const publicKeyOptions = challengeData.publicKey;
+                
+                publicKeyOptions.challenge = base64urlToArrayBuffer(publicKeyOptions.challenge);
+                publicKeyOptions.user.id = base64urlToArrayBuffer(publicKeyOptions.user.id);
+                
+                console.log('Creating credential with options:', publicKeyOptions);
+                console.log('User agent:', navigator.userAgent);
+                console.log('WebAuthn support:', !!navigator.credentials && !!navigator.credentials.create);
+                
+                const credential = await navigator.credentials.create({
+                    publicKey: publicKeyOptions
+                });
+                
+                console.log('Credential created successfully:', credential);
+                resultDiv.innerHTML = '<div class="info">Verifying credential...</div>';
+                
+                const verifyResponse = await fetch('/auth/register/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        challengeId: challengeData.challengeId,
+                        credential: {
+                            id: credential.id,
+                            rawId: arrayBufferToBase64url(credential.rawId),
+                            response: {
+                                clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
+                                attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
+                            },
+                            type: credential.type
+                        }
+                    })
+                });
+                
+                const verifyData = await verifyResponse.json();
+                
+                if (verifyResponse.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Registration successful!<br>
+                            <strong>Username:</strong> ${username}<br>
+                            <strong>User ID:</strong> ${verifyData.userId}<br>
+                            <strong>Client Key:</strong> ${challengeData.clientKey}<br>
+                            <small>✨ Your password is stored securely and your client key is now permanently embedded in your passkey! During authentication, the client key will be automatically extracted from your passkey.</small>
+                        </div>
+                    `;
+                    
+                    document.getElementById('regUsername').value = '';
+                    document.getElementById('regPassword').value = '';
+                    
+                    loadUsers();
+                } else {
+                    throw new Error(verifyData.error || 'Registration failed');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                console.error('Error name:', error.name);
+                console.error('Error code:', error.code);
+                
+                let errorMessage = error.message;
+                
+                if (error.name === 'NotSupportedError') {
+                    errorMessage = 'Your browser/device does not support this type of authenticator. Try using Touch ID, Face ID, or a hardware security key.';
+                } else if (error.name === 'SecurityError') {
+                    errorMessage = 'Registration failed due to security restrictions. Make sure you\'re on HTTPS or localhost.';
+                } else if (error.name === 'InvalidStateError') {
+                    errorMessage = 'This authenticator is already registered. Try using a different device or clearing your browser data.';
+                } else if (error.name === 'NotAllowedError') {
+                    errorMessage = 'Registration was cancelled or not allowed. Please try again.';
+                }
+                
+                resultDiv.innerHTML = `<div class="error">❌ Registration failed: ${errorMessage}</div>`;
+                clientKeyResult.style.display = 'none';
+            }
+        }
+
+        // Register a user with PIN using main form fields
+        async function registerUserWithPINFromMainForm() {
+            console.log('PIN registration from main form called');
+            
+            const username = document.getElementById('regUsername').value;
+            const displayName = document.getElementById('regDisplayName').value || username;
+            const password = document.getElementById('regPassword').value;
+            const resultDiv = document.getElementById('registerResult');
+            const clientKeyResult = document.getElementById('regClientKeyResult');
+            
+            console.log('Main form PIN registration inputs:', { username, displayName, password });
+            
+            if (!username || !password) {
+                resultDiv.innerHTML = '<div class="error">Please enter username and password</div>';
+                console.log('Main form PIN registration: Missing required fields');
+                return;
+            }
+            
+            try {
+                console.log('Main form PIN registration: Starting process...');
+                resultDiv.innerHTML = '<div class="info">Requesting PIN registration challenge...</div>';
+                clientKeyResult.style.display = 'none';
+                
+                const deviceName = document.getElementById('regDeviceName').value || 'PIN Security Key';
+                console.log('Main form PIN registration: Sending challenge request...');
+                
+                const challengeResponse = await fetch('/auth/register/challenge-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, displayName, password, deviceName })
+                });
+                
+                console.log('Main form PIN registration: Challenge response received:', challengeResponse.status);
+                
+                const challengeData = await challengeResponse.json();
+                
+                if (!challengeResponse.ok) {
+                    throw new Error(challengeData.error || 'Failed to get PIN challenge');
+                }
+                
+                console.log('Main form PIN registration: Challenge data:', challengeData);
+                
+                document.getElementById('regClientKeyDisplay').value = challengeData.clientKey;
+                clientKeyResult.style.display = 'block';
+                
+                resultDiv.innerHTML = '<div class="info">Insert your security key and enter PIN when prompted...</div>';
+                
+                const publicKeyOptions = challengeData.publicKey;
+                
+                publicKeyOptions.challenge = base64urlToArrayBuffer(publicKeyOptions.challenge);
+                publicKeyOptions.user.id = base64urlToArrayBuffer(publicKeyOptions.user.id);
+                
+                console.log('Creating PIN credential with options:', publicKeyOptions);
+                console.log('Authenticator attachment:', publicKeyOptions.authenticatorSelection.authenticatorAttachment);
+                
+                const credential = await navigator.credentials.create({
+                    publicKey: publicKeyOptions
+                });
+                
+                console.log('PIN credential created successfully:', credential);
+                resultDiv.innerHTML = '<div class="info">Verifying PIN credential...</div>';
+                
+                const verifyResponse = await fetch('/auth/register/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        challengeId: challengeData.challengeId,
+                        credential: {
+                            id: credential.id,
+                            rawId: arrayBufferToBase64url(credential.rawId),
+                            response: {
+                                clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
+                                attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
+                            },
+                            type: credential.type
+                        }
+                    })
+                });
+                
+                const verifyData = await verifyResponse.json();
+                
+                if (verifyResponse.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ PIN Registration successful!<br>
+                            <strong>Username:</strong> ${username}<br>
+                            <strong>User ID:</strong> ${verifyData.userId}<br>
+                            <strong>Client Key:</strong> ${challengeData.clientKey}<br>
+                            <strong>Authenticator:</strong> PIN Security Key<br>
+                            <small>🔢 Your PIN-protected security key now contains your passkey with embedded client key!</small>
+                        </div>
+                    `;
+                    
+                    document.getElementById('regUsername').value = '';
+                    document.getElementById('regDisplayName').value = '';
+                    document.getElementById('regPassword').value = '';
+                    
+                    loadUsers();
+                } else {
+                    throw new Error(verifyData.error || 'PIN registration failed');
+                }
+                
+            } catch (error) {
+                console.error('Main form PIN Registration error:', error);
+                console.error('Error name:', error.name);
+                console.error('Error stack:', error.stack);
+                
+                let errorMessage = error.message;
+                
+                if (error.name === 'NotSupportedError') {
+                    errorMessage = 'PIN authenticators not supported. Please use a hardware security key (YubiKey, etc.) that supports PIN.';
+                } else if (error.name === 'SecurityError') {
+                    errorMessage = 'Security error. Make sure your security key supports PIN and FIDO2.';
+                } else if (error.name === 'InvalidStateError') {
+                    errorMessage = 'This security key is already registered. Try using a different key.';
+                } else if (error.name === 'NotAllowedError') {
+                    errorMessage = 'PIN entry was cancelled or failed. Please try again and enter your PIN.';
+                } else if (error.name === 'TypeError' && error.message.includes('navigator.credentials')) {
+                    errorMessage = 'WebAuthn not supported in this browser. Please use Chrome, Firefox, Safari, or Edge.';
+                }
+                
+                resultDiv.innerHTML = `<div class="error">❌ PIN Registration failed: ${errorMessage}</div>`;
+                clientKeyResult.style.display = 'none';
+            }
+        }
+
+        // Register a user with PIN-based authenticator
+        async function registerUserWithPIN() {
+            console.log('PIN registration function called');
+            
+            const username = document.getElementById('pinRegUsername').value;
+            const displayName = document.getElementById('pinRegDisplayName').value;
+            const password = document.getElementById('pinRegPassword').value;
+            const resultDiv = document.getElementById('pinRegisterResult');
+            const clientKeyResult = document.getElementById('pinRegClientKeyResult');
+            
+            console.log('PIN registration inputs:', { username, displayName, password });
+            
+            if (!username || !displayName || !password) {
+                resultDiv.innerHTML = '<div class="error">Please enter all required fields</div>';
+                console.log('PIN registration: Missing required fields');
+                return;
+            }
+            
+            try {
+                console.log('PIN registration: Starting process...');
+                resultDiv.innerHTML = '<div class="info">Requesting PIN registration challenge...</div>';
+                clientKeyResult.style.display = 'none';
+                
+                const deviceName = document.getElementById('pinRegDeviceName').value || 'PIN Security Key';
+                console.log('PIN registration: Sending challenge request...');
+                
+                const challengeResponse = await fetch('/auth/register/challenge-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, displayName, password, deviceName })
+                });
+                
+                console.log('PIN registration: Challenge response received:', challengeResponse.status);
+                
+                const challengeData = await challengeResponse.json();
+                
+                if (!challengeResponse.ok) {
+                    throw new Error(challengeData.error || 'Failed to get PIN challenge');
+                }
+                
+                console.log('PIN registration: Challenge data:', challengeData);
+                
+                document.getElementById('pinRegClientKeyDisplay').value = challengeData.clientKey;
+                clientKeyResult.style.display = 'block';
+                
+                resultDiv.innerHTML = '<div class="info">Insert your security key and enter PIN when prompted...</div>';
+                
+                const publicKeyOptions = challengeData.publicKey;
+                
+                publicKeyOptions.challenge = base64urlToArrayBuffer(publicKeyOptions.challenge);
+                publicKeyOptions.user.id = base64urlToArrayBuffer(publicKeyOptions.user.id);
+                
+                console.log('Creating PIN credential with options:', publicKeyOptions);
+                console.log('Authenticator attachment:', publicKeyOptions.authenticatorSelection.authenticatorAttachment);
+                
+                const credential = await navigator.credentials.create({
+                    publicKey: publicKeyOptions
+                });
+                
+                console.log('PIN credential created successfully:', credential);
+                resultDiv.innerHTML = '<div class="info">Verifying PIN credential...</div>';
+                
+                const verifyResponse = await fetch('/auth/register/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        challengeId: challengeData.challengeId,
+                        credential: {
+                            id: credential.id,
+                            rawId: arrayBufferToBase64url(credential.rawId),
+                            response: {
+                                clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
+                                attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
+                            },
+                            type: credential.type
+                        }
+                    })
+                });
+                
+                const verifyData = await verifyResponse.json();
+                
+                if (verifyResponse.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ PIN Registration successful!<br>
+                            <strong>Username:</strong> ${username}<br>
+                            <strong>User ID:</strong> ${verifyData.userId}<br>
+                            <strong>Client Key:</strong> ${challengeData.clientKey}<br>
+                            <strong>Authenticator:</strong> PIN Security Key<br>
+                            <small>🔢 Your PIN-protected security key now contains your passkey with embedded client key!</small>
+                        </div>
+                    `;
+                    
+                    document.getElementById('pinRegUsername').value = '';
+                    document.getElementById('pinRegDisplayName').value = '';
+                    document.getElementById('pinRegPassword').value = '';
+                    
+                    loadUsers();
+                } else {
+                    throw new Error(verifyData.error || 'PIN registration failed');
+                }
+                
+            } catch (error) {
+                console.error('PIN Registration error:', error);
+                console.error('Error name:', error.name);
+                console.error('Error stack:', error.stack);
+                
+                let errorMessage = error.message;
+                
+                if (error.name === 'NotSupportedError') {
+                    errorMessage = 'PIN authenticators not supported. Please use a hardware security key (YubiKey, etc.) that supports PIN.';
+                } else if (error.name === 'SecurityError') {
+                    errorMessage = 'Security error. Make sure your PIN security key supports FIDO2.';
+                } else if (error.name === 'InvalidStateError') {
+                    errorMessage = 'This security key is already registered. Try using a different key.';
+                } else if (error.name === 'NotAllowedError') {
+                    errorMessage = 'PIN entry was cancelled or failed. Please try again and enter your PIN.';
+                }
+                
+                resultDiv.innerHTML = `<div class="error">❌ PIN Registration failed: ${errorMessage}</div>`;
+                clientKeyResult.style.display = 'none';
+            }
+        }
+
+        // Copy PIN registration client key to clipboard
+        function copyPinRegClientKey() {
+            const clientKeyField = document.getElementById('pinRegClientKeyDisplay');
+            if (clientKeyField && clientKeyField.value) {
+                clientKeyField.select();
+                document.execCommand('copy');
+                alert('PIN Client key copied to clipboard!');
+            }
+        }
+
+        // Continue with authentication functions...
+        // [Previous authentication, device registration, and utility functions would continue here]
+        
+        // Authentication and other functions
+        async function authenticateUser() {
+            const username = document.getElementById('authUsername').value;
+            const password = document.getElementById('authPassword').value;
+            const resultDiv = document.getElementById('authResult');
+            
+            if (!username || !password) {
+                resultDiv.innerHTML = '<div class="error">Please enter both username and password</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Requesting authentication challenge...</div>';
+                
+                const challengeResponse = await fetch('/auth/login/challenge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                
+                const challengeData = await challengeResponse.json();
+                
+                if (!challengeResponse.ok) {
+                    throw new Error(challengeData.error || 'Failed to get challenge');
+                }
+                
+                resultDiv.innerHTML = '<div class="info">Authenticating... Please use your passkey</div>';
+                
+                const publicKeyOptions = challengeData.publicKey;
+                
+                publicKeyOptions.challenge = base64urlToArrayBuffer(publicKeyOptions.challenge);
+                publicKeyOptions.allowCredentials = publicKeyOptions.allowCredentials.map(cred => ({
+                    ...cred,
+                    id: base64urlToArrayBuffer(cred.id)
+                }));
+                
+                const assertion = await navigator.credentials.get({
+                    publicKey: publicKeyOptions
+                });
+                
+                resultDiv.innerHTML = '<div class="info">Verifying authentication...</div>';
+                
+                const verifyResponse = await fetch('/auth/login/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        challengeId: challengeData.challengeId,
+                        username,
+                        password,
+                        credential: {
+                            id: assertion.id,
+                            rawId: arrayBufferToBase64url(assertion.rawId),
+                            response: {
+                                clientDataJSON: arrayBufferToBase64url(assertion.response.clientDataJSON),
+                                authenticatorData: arrayBufferToBase64url(assertion.response.authenticatorData),
+                                signature: arrayBufferToBase64url(assertion.response.signature),
+                                userHandle: assertion.response.userHandle ? arrayBufferToBase64url(assertion.response.userHandle) : null
+                            },
+                            type: assertion.type
+                        }
+                    })
+                });
+                
+                const verifyData = await verifyResponse.json();
+                
+                if (verifyResponse.ok) {
+                    if (verifyData.requiresDeviceRegistration) {
+                        resultDiv.innerHTML = `
+                            <div class="info">
+                                🔐 Credentials verified! This appears to be a new device.<br>
+                                <strong>Please scan the QR code below from a trusted device to register this device:</strong>
+                            </div>
+                            <div style="text-align: center; margin: 20px 0;">
+                                <img src="${verifyData.deviceRegistration.qrCodeDataUrl}" alt="Device Registration QR Code" style="max-width: 300px;">
+                                <p><small>Scan with a device that already has your passkey</small></p>
+                            </div>
+                            <div id="deviceRegStatus" style="text-align: center;">
+                                <p>⏳ Waiting for trusted device authorization...</p>
+                                <div class="spinner">⌛</div>
+                            </div>
+                        `;
+                        
+                        pollDeviceRegistration(verifyData.deviceRegistration.sessionId);
+                    } else {
+                        let devicesHtml = '';
+                        if (verifyData.devices && verifyData.devices.length > 0) {
+                            devicesHtml = '<br><strong>Your Devices:</strong><ul>';
+                            verifyData.devices.forEach(device => {
+                                devicesHtml += `<li>📱 ${device.deviceName} (Last used: ${new Date(device.lastUsed).toLocaleDateString()})</li>`;
+                            });
+                            devicesHtml += '</ul>';
+                        }
+                        
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                ✅ Multi-factor authentication successful!<br>
+                                <strong>Welcome back:</strong> ${verifyData.user.displayName}<br>
+                                <strong>Username:</strong> ${verifyData.user.username}<br>
+                                <strong>Client Key:</strong> ${verifyData.user.clientKey}<br>
+                                <small>🔐 Password verified ✓ Passkey verified ✓ Client key fetched from displayName ✓</small>
+                                ${devicesHtml}
+                            </div>
+                        `;
+                        
+                        document.getElementById('authUsername').value = '';
+                        document.getElementById('authPassword').value = '';
+                    }
+                } else {
+                    throw new Error(verifyData.error || 'Authentication failed');
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Authentication failed: ${error.message}</div>`;
+            }
+        }
+
+        // Load users
+        async function loadUsers() {
+            try {
+                const response = await fetch('/admin/users');
+                const data = await response.json();
+                
+                let html = '<h3>Registered Users</h3>';
+                if (data.users && data.users.length > 0) {
+                    data.users.forEach(user => {
+                        html += `
+                            <div class="user-item">
+                                <strong>${user.displayName}</strong> (@${user.username})<br>
+                                <small>
+                                    Auth Type: ${user.authType} | 
+                                    Password: ${user.hasPassword ? '✅' : '❌'} | 
+                                    Client Key: ${user.hasClientKey ? '✅' : '❌'} | 
+                                    Created: ${new Date(user.createdAt).toLocaleString()}
+                                </small>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<p>No users registered yet.</p>';
+                }
+                html += `<p><small>Total: ${data.totalUsers} users</small></p>`;
+                
+                document.getElementById('usersList').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('usersList').innerHTML = '<div class="error">Error loading users</div>';
+            }
+        }
+
+        // Check health
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                document.getElementById('healthResult').innerHTML = `
+                    <div class="success">
+                        ✅ Server is healthy<br>
+                        <small>Uptime: ${Math.round(data.uptime)}s | Users: ${data.users} | Challenges: ${data.activeChallenges}</small>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('healthResult').innerHTML = `
+                    <div class="error">❌ Server connection failed</div>
+                `;
+            }
+        }
+
+        // Add more function stubs for the missing ones
+        async function authenticateUserWithPIN() {
+            // Implementation would go here
+            console.log('PIN authentication not yet implemented in restored version');
+        }
+
+        async function pollDeviceRegistration(sessionId) {
+            // Implementation would go here
+            console.log('Device registration polling not yet implemented in restored version');
+        }
+
+        async function authorizeDeviceRegistration() {
+            // Implementation would go here
+            console.log('Device authorization not yet implemented in restored version');
+        }
+
+        // Initialize
+        window.onload = function() {
+            loadUsers();
+            checkHealth();
+        };
+    </script>
+</body>
+</html> 
