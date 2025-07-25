@@ -26,6 +26,27 @@ A comprehensive FIDO2/WebAuthn authentication system with embedded client keys f
 4. **Client Key Extraction**: Automatic extraction from passkey userHandle
 5. **Validation**: All factors must match for successful authentication
 
+## 📊 Flow Diagrams
+
+Comprehensive flow diagrams are available in the `docs/` directory:
+
+- **`docs/flow-diagram.mmd`** - Main authentication flow diagram (pure Mermaid format)
+- **`docs/authentication-flow.mmd`** - Detailed authentication process
+- **`docs/system-architecture.mmd`** - System architecture overview
+- **`docs/data-flow.mmd`** - Data flow through the system
+- **`docs/README.md`** - Documentation overview and viewing instructions
+
+### Quick Flow Overview
+
+```mermaid
+graph TD
+    A[User Input] --> B{Registration or Login?}
+    B -->|Registration| C[Generate Client Key + Create Passkey]
+    B -->|Login| D[Verify Password + Passkey + Client Key]
+    C --> E[Store User + Public Key]
+    D --> F[Multi-Factor Authentication Success]
+```
+
 ## 🔐 WebAuthn Security Architecture
 
 ### Core Security Principles

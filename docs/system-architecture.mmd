@@ -1,0 +1,76 @@
+graph TB
+    subgraph "Frontend (Browser)"
+        A[HTML/CSS/JS] --> B[WebAuthn API]
+        B --> C[Password Manager Integration]
+        C --> D[localStorage Backup]
+    end
+    
+    subgraph "Backend (Node.js)"
+        E[Express Server] --> F[FIDO2-lib]
+        F --> G[Crypto Module]
+        G --> H[bcrypt]
+        
+        subgraph "In-Memory Storage"
+            I[users Map]
+            J[challenges Map]
+            K[userDevices Map]
+            L[deviceRegistrationSessions Map]
+        end
+        
+        subgraph "API Endpoints"
+            M[Registration APIs]
+            N[Authentication APIs]
+            O[Device Management APIs]
+            P[Admin APIs]
+            Q[System APIs]
+        end
+    end
+    
+    subgraph "Security Components"
+        R[Client Key Generation]
+        S[Password Hashing]
+        T[WebAuthn Verification]
+        U[QR Code Generation]
+    end
+    
+    subgraph "External Systems"
+        V[Password Managers]
+        W[Hardware Security Keys]
+        X[Platform Authenticators]
+        Y[QR Code Scanners]
+    end
+    
+    %% Connections
+    A <--> E
+    B <--> F
+    C <--> V
+    D --> A
+    E --> I
+    E --> J
+    E --> K
+    E --> L
+    E --> M
+    E --> N
+    E --> O
+    E --> P
+    E --> Q
+    F --> T
+    G --> R
+    H --> S
+    E --> U
+    W --> B
+    X --> B
+    Y --> A
+    
+    %% Styling
+    classDef frontend fill:#e3f2fd,stroke:#1976d2,color:#1976d2
+    classDef backend fill:#f3e5f5,stroke:#7b1fa2,color:#7b1fa2
+    classDef storage fill:#e8f5e8,stroke:#388e3c,color:#388e3c
+    classDef security fill:#fff3e0,stroke:#f57c00,color:#f57c00
+    classDef external fill:#fce4ec,stroke:#c2185b,color:#c2185b
+    
+    class A,B,C,D frontend
+    class E,F,G,H,M,N,O,P,Q backend
+    class I,J,K,L storage
+    class R,S,T,U security
+    class V,W,X,Y external 

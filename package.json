@@ -1,13 +1,16 @@
 {
   "name": "passwordless",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "FIDO2 Passwordless Authentication Demo",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "version:patch": "node scripts/version.js patch",
+    "version:minor": "node scripts/version.js minor",
+    "version:major": "node scripts/version.js major"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

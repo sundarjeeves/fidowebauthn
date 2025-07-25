@@ -1,0 +1,64 @@
+graph TD
+    A[User Enters Credentials] --> B{Registration or Login?}
+    
+    B -->|Registration| C[Registration Flow]
+    B -->|Login| D[Authentication Flow]
+    
+    %% Registration Flow
+    C --> E[POST /auth/register/challenge]
+    E --> F[Generate Client Key]
+    F --> G[Hash Password]
+    G --> H[Create userHandle]
+    H --> I[Return Challenge + Options]
+    I --> J[User Creates Passkey]
+    J --> K[POST /auth/register/verify]
+    K --> L[Store User + Public Key]
+    L --> M[Registration Complete]
+    
+    %% Authentication Flow
+    D --> N[POST /auth/login/challenge]
+    N --> O[Find User by Username]
+    O --> P[Prepare allowCredentials]
+    P --> Q[Return Challenge]
+    Q --> R[User Authenticates with Passkey]
+    R --> S{Passkey Available?}
+    
+    S -->|Yes| T[POST /auth/login/verify]
+    S -->|No| U[New Device Detected]
+    
+    T --> V[Verify Password]
+    V --> W[Verify Passkey Signature]
+    W --> X[Extract Client Key from userHandle]
+    X --> Y[Verify Client Key Match]
+    Y --> Z[Authentication Successful]
+    
+    %% New Device Flow
+    U --> AA[Generate QR Code]
+    AA --> BB[Display QR Code]
+    BB --> CC[Trusted Device Scans QR]
+    CC --> DD[Create Authorization Passkey]
+    DD --> EE[Authorize New Device]
+    EE --> FF[New Device Creates Passkey]
+    FF --> GG[Authentication Successful]
+    
+    %% PIN Registration Flow
+    H --> HH[PIN Registration?]
+    HH -->|Yes| II[Set authenticatorAttachment: cross-platform]
+    HH -->|No| I
+    II --> I
+    
+    %% Error Handling
+    T --> JJ{Verification Failed?}
+    JJ -->|Yes| KK[Return Error]
+    JJ -->|No| Z
+    
+    %% Styling
+    classDef success fill:#d4edda,stroke:#155724,color:#155724
+    classDef error fill:#f8d7da,stroke:#721c24,color:#721c24
+    classDef process fill:#d1ecf1,stroke:#0c5460,color:#0c5460
+    classDef decision fill:#fff3cd,stroke:#856404,color:#856404
+    
+    class M,Z,GG success
+    class KK error
+    class E,F,G,H,I,J,K,L,N,O,P,Q,R,T,V,W,X,Y,AA,BB,CC,DD,EE,FF,II process
+    class B,S,JJ,HH decision 

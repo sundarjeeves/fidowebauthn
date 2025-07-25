@@ -37,6 +37,55 @@ const crossDeviceSessions = new Map(); // For QR code authentication sessions
 const deviceRegistrationSessions = new Map(); // For new device registration QR codes
 const userDevices = new Map(); // Key: username, Value: array of devices
 
+// Utility function to log cryptographic keys in detail
+function logCryptographicKeys(operation, data) {
+    console.log(`\n🔐 ===== CRYPTOGRAPHIC KEYS LOG: ${operation.toUpperCase()} =====`);
+    
+    if (data.clientKey) {
+        console.log(`🔑 CLIENT KEY: ${data.clientKey}`);
+        console.log(`   📊 Length: ${data.clientKey.length} characters`);
+        console.log(`   🔢 Entropy: ${(data.clientKey.length * 4)} bits`);
+    }
+    
+    if (data.challenge) {
+        console.log(`🎲 WEBAUTHN CHALLENGE: ${data.challenge}`);
+        console.log(`   📊 Length: ${data.challenge.length} characters`);
+    }
+    
+    if (data.userId) {
+        console.log(`👤 USER ID (HANDLE): ${data.userId}`);
+        console.log(`   📊 Length: ${data.userId.length} characters`);
+    }
+    
+    if (data.credentialId) {
+        console.log(`🆔 CREDENTIAL ID: ${data.credentialId}`);
+        console.log(`   📊 Length: ${data.credentialId.length} characters`);
+    }
+    
+    if (data.publicKey) {
+        console.log(`📜 PUBLIC KEY: ${data.publicKey.substring(0, 100)}...`);
+        console.log(`   📊 Length: ${data.publicKey.length} characters`);
+        console.log(`   🔐 Type: WebAuthn Public Key`);
+    }
+    
+    if (data.hashedPassword) {
+        console.log(`🗝️  HASHED PASSWORD: ${data.hashedPassword.substring(0, 30)}...`);
+        console.log(`   📊 Algorithm: bcrypt`);
+        console.log(`   🔒 Salt Rounds: 12`);
+    }
+    
+    if (data.signature) {
+        console.log(`✍️  SIGNATURE: ${data.signature.substring(0, 50)}...`);
+        console.log(`   📊 Length: ${data.signature.length} characters`);
+    }
+    
+    if (data.rpId) {
+        console.log(`🌐 RELYING PARTY ID: ${data.rpId}`);
+    }
+    
+    console.log(`🔐 ===== END CRYPTOGRAPHIC KEYS LOG =====\n`);
+}
+
 // Clear any existing users to fix credential ID format issues
 users.clear();
 console.log('🧹 Cleared existing users due to credential ID format update');
@@ -79,14 +128,25 @@ app.get('/', (req, res) => {
     });
 });
 
+// Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ 
+    res.json({
         status: 'OK',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
         users: users.size,
         activeChallenges: challenges.size,
         crossDeviceSessions: crossDeviceSessions.size
+    });
+});
+
+// Version endpoint to serve current version
+app.get('/version', (req, res) => {
+    const packageJson = require('./package.json');
+    res.json({
+        version: packageJson.version,
+        name: packageJson.name,
+        description: packageJson.description
     });
 });
 
@@ -142,6 +202,15 @@ app.post('/auth/register/challenge', async (req, res) => {
 
         // Generate registration options
         const registrationOptions = await fido2.attestationOptions();
+        
+        // Log all cryptographic keys
+        logCryptographicKeys('REGISTRATION_CHALLENGE', {
+            clientKey,
+            challenge: Buffer.from(registrationOptions.challenge).toString('base64url'),
+            userId: userId.toString('base64url'),
+            rpId: RP_ID,
+            hashedPassword: hashedPassword
+        });
         
         // Store challenge temporarily (keep original binary format)
         const challengeId = crypto.randomUUID();
@@ -447,10 +516,22 @@ app.post('/auth/register/verify', async (req, res) => {
         const credentialId = regResult.authnrData.get("credId");
         const credentialIdBase64 = Buffer.from(credentialId).toString('base64url');
         
+        // Store user with embedded client key
         console.log(`💾 Storing user with embedded client key data`);
-        console.log(`🔑 Credential ID (ArrayBuffer):`, credentialId);
+        console.log(`🔑 Credential ID (ArrayBuffer):`, credential.rawId);
         console.log(`🔑 Credential ID (base64url): ${credentialIdBase64}`);
         console.log(`👤 User data contains: ${challengeData.userIdData}`);
+        
+        // Log detailed WebAuthn registration keys
+        logCryptographicKeys('REGISTRATION_VERIFICATION', {
+            credentialId: credentialIdBase64,
+            clientKey: challengeData.clientKey,
+            publicKey: regResult.authnrData.get('credentialPublicKeyPem'),
+            hashedPassword: challengeData.hashedPassword,
+            userId: challengeData.userIdData,
+            rpId: RP_ID,
+            signature: credential.response.attestationObject
+        });
         
         users.set(credentialIdBase64, {
             id: challengeData.userId,
@@ -552,6 +633,14 @@ app.post('/auth/login/challenge', async (req, res) => {
         
         console.log(`🔑 Prepared ${allowCredentials.length} credentials for authentication`);
         console.log(`📋 Credential IDs being sent:`, allowCredentials.map(c => c.id));
+
+        // Log authentication challenge keys
+        logCryptographicKeys('AUTHENTICATION_CHALLENGE', {
+            challenge: Buffer.from(authOptions.challenge).toString('base64url'),
+            credentialId: allowCredentials[0]?.id,
+            rpId: RP_ID,
+            userId: `Found ${allowCredentials.length} credentials for user`
+        });
 
         // Convert challenge to base64url for client
         const challengeBase64url = Buffer.from(authOptions.challenge).toString('base64url');
@@ -909,6 +998,23 @@ app.post('/auth/login/verify', async (req, res) => {
                 }
                 
                 console.log(`✅ Client key from passkey verified successfully`);
+                
+                // Log detailed authentication keys
+                logCryptographicKeys('AUTHENTICATION_VERIFICATION', {
+                    credentialId: user.credentials[0].credentialIdBase64,
+                    clientKey: extractedClientKey,
+                    publicKey: user.credentials[0].publicKey,
+                    userId: userHandleText,
+                    rpId: RP_ID,
+                    signature: assertion.response.signature
+                });
+                
+                console.log(`🔐 Authentication Keys Verified:`);
+                console.log(`   🔑 Client Key Match: ${extractedClientKey === user.clientKey ? '✅' : '❌'}`);
+                console.log(`   🗝️  Password Verified: ✅`);
+                console.log(`   📜 Public Key Used: ${user.credentials[0].publicKey.substring(0, 50)}...`);
+                console.log(`   🔒 Counter: ${user.credentials[0].counter}`);
+                console.log(`   👤 User Handle Verified: ✅`);
             } catch (error) {
                 console.error(`❌ Error decoding userHandle:`, error);
                 console.log(`⚠️ Falling back to stored client key from displayName`);

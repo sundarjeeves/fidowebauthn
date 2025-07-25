@@ -1,0 +1,70 @@
+---
+config:
+  layout: dagre
+---
+flowchart LR
+ subgraph subGraph0["Input Data"]
+        A["Username"]
+        B["Password"]
+        C["Display Name"]
+        D["Device Name"]
+  end
+ subgraph Processing["Processing"]
+        E["Client Key Generation"]
+        F["Password Hashing"]
+        G["userHandle Creation"]
+        H["WebAuthn Challenge"]
+        I["Credential Creation"]
+        J["Signature Verification"]
+  end
+ subgraph Storage["Storage"]
+        K["users Map"]
+        L["challenges Map"]
+        M["userDevices Map"]
+        N["Password Manager"]
+        O["localStorage"]
+  end
+ subgraph Output["Output"]
+        P["Public Key"]
+        Q["Client Key"]
+        R["Device Info"]
+        S["Authentication Result"]
+  end
+    A --> G
+    B --> F
+    C --> R
+    D --> R
+    E --> G & Q
+    F --> K
+    G --> I
+    H --> I
+    I --> J & P
+    J --> K
+    K --> S
+    L --> J
+    M --> R
+    N --> Q
+    O --> Q
+     A:::input
+     B:::input
+     C:::input
+     D:::input
+     E:::process
+     F:::process
+     G:::process
+     H:::process
+     I:::process
+     J:::process
+     K:::storage
+     L:::storage
+     M:::storage
+     N:::storage
+     O:::storage
+     P:::output
+     Q:::output
+     R:::output
+     S:::output
+    classDef input fill:#e8f5e8,stroke:#388e3c,color:#388e3c
+    classDef process fill:#e3f2fd,stroke:#1976d2,color:#1976d2
+    classDef storage fill:#fff3e0,stroke:#f57c00,color:#f57c00
+    classDef output fill:#f3e5f5,stroke:#7b1fa2,color:#7b1fa2
