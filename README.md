@@ -26,6 +26,52 @@ A comprehensive FIDO2/WebAuthn authentication system with embedded client keys f
 4. **Client Key Extraction**: Automatic extraction from passkey userHandle
 5. **Validation**: All factors must match for successful authentication
 
+## 🔐 WebAuthn Security Architecture
+
+### Core Security Principles
+
+**IMPORTANT**: In WebAuthn, private keys NEVER leave the device. This is fundamental to the security model.
+
+#### ✅ Correct Flow (Secure)
+```
+1. Client requests challenge from server
+2. Server sends challenge + options (rp: "prod.jeev.es", platform preference)
+3. Client device generates private/public key pair LOCALLY
+4. Private key stays on device (never transmitted)
+5. Client sends public key + signed challenge to server
+6. Server stores public key and verifies signature
+```
+
+#### ❌ Insecure Flow (DO NOT DO)
+```
+1. Server generates private/public key pair
+2. Server sends private key to client ← SECURITY VULNERABILITY
+3. Server stores public key
+```
+
+### Domain Configuration
+
+For production deployment on `prod.jeev.es`:
+
+```bash
+# Environment variables
+export RP_ID="prod.jeev.es"
+export RP_NAME="Jeev.es Authentication"
+export RP_ICON="https://prod.jeev.es/favicon.ico"
+```
+
+### Platform Authenticator Preference
+
+The system is configured to prefer platform authenticators:
+- **Touch ID** (macOS/iOS)
+- **Face ID** (iOS/iPadOS)  
+- **Windows Hello** (Windows)
+- **Android Biometrics** (Android)
+
+For hardware security keys (YubiKey, etc.), use the PIN registration flow.
+
+## 🛠️ Implementation Details
+
 ## Installation
 
 ```bash

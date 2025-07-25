@@ -1,24 +1,33 @@
 const express = require('express');
+const path = require('path');
 const { Fido2Lib } = require('fido2-lib');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcrypt');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// FIDO2 Server Configuration
+// Environment configuration for domain setup
+const RP_ID = process.env.RP_ID || "localhost"; // Use "prod.jeev.es" in production
+const RP_NAME = process.env.RP_NAME || "Jeev.es Authentication";
+const RP_ICON = process.env.RP_ICON || "https://prod.jeev.es/favicon.ico";
+
+console.log(`🌐 WebAuthn configured for domain: ${RP_ID}`);
+console.log(`🏢 Relying Party: ${RP_NAME}`);
+
+// FIDO2 Configuration for prod.jeev.es
 const fido2 = new Fido2Lib({
     timeout: 60000,
-    rpId: "localhost",
-    rpName: "Passkey + Client Key Demo Server",
-    rpIcon: "https://example.com/icon.png",
+    rpId: RP_ID, // Your domain
+    rpName: RP_NAME,
+    rpIcon: RP_ICON,
     challengeSize: 128,
     attestation: "none",
     cryptoParams: [-7, -257],
     authenticatorRequireResidentKey: false,
-    authenticatorUserVerification: "required"
+    authenticatorUserVerification: "preferred"
 });
 
 // In-memory storage (use database in production)
@@ -165,14 +174,19 @@ app.post('/auth/register/challenge', async (req, res) => {
             publicKey: {
                 ...registrationOptions,
                 challenge: challengeBase64url,
-                                    user: {
-                        id: userId.toString('base64url'),
-                        name: username,
-                        displayName: clientKey // Store the actual client key in displayName
-                    },
+                rp: {
+                    name: RP_NAME,
+                    id: RP_ID
+                },
+                user: {
+                    id: userId.toString('base64url'),
+                    name: `${username} [Key: ${clientKey.substring(0, 8)}...]`, // Include partial key in name for Keeper visibility
+                    displayName: clientKey // Store the actual client key in displayName
+                },
                 excludeCredentials: [],
-                // Safari-compatible authenticator selection
+                // Platform authenticator preference for prod.jeev.es
                 authenticatorSelection: {
+                    authenticatorAttachment: "platform", // Prefer platform authenticators (Touch ID, Face ID, Windows Hello)
                     userVerification: "required",
                     residentKey: "required"  // Safari prefers residentKey over requireResidentKey
                 },
@@ -254,13 +268,17 @@ app.post('/auth/register/challenge-pin', async (req, res) => {
             publicKey: {
                 ...registrationOptions,
                 challenge: challengeBase64url,
+                rp: {
+                    name: RP_NAME,
+                    id: RP_ID
+                },
                 user: {
                     id: userId.toString('base64url'),
-                    name: username,
+                    name: `${username} [Key: ${clientKey.substring(0, 8)}...]`, // Include partial key in name for Keeper visibility
                     displayName: clientKey
                 },
                 excludeCredentials: [],
-                // PIN-based authenticator selection
+                // PIN-based authenticator selection for prod.jeev.es
                 authenticatorSelection: {
                     authenticatorAttachment: "cross-platform", // Hardware security keys
                     userVerification: "required", // PIN required
